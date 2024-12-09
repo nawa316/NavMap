@@ -1,2 +1,2 @@
 # NavMap
-Graph Map navigation using Dijkstra, Sorting dan DFS
+Graph MapGraph navigation using Dijkstra, Sorting dan DFS
