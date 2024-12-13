@@ -30,10 +30,15 @@ public class MazeSolver extends JFrame implements ActionListener {
     private boolean dfsPathFound = false;
     private boolean dijkstraPathFound = false;
 
+    // Variables for tracking the cost of the optimal path
+    private int dijkstraOptimalCost = 0;
+    private int dfsOptimalCost = 0;
+    private JLabel costLabel;
+
     public MazeSolver() {
         super("Maze Solver");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(GRID_SIZE * CELL_SIZE + 16, GRID_SIZE * CELL_SIZE + 38);
+        setSize(GRID_SIZE * CELL_SIZE + 16, GRID_SIZE * CELL_SIZE + 100);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
@@ -64,6 +69,12 @@ public class MazeSolver extends JFrame implements ActionListener {
         JPanel buttonPanel = new JPanel();
         buttonPanel.add(startButton);
         add(buttonPanel, BorderLayout.SOUTH);
+
+        // Cost Label
+        costLabel = new JLabel("Total Cost: Dijkstra: 0 | DFS: 0");
+        JPanel costPanel = new JPanel();
+        costPanel.add(costLabel);
+        add(costPanel, BorderLayout.NORTH);
 
         timer = new Timer(100, e -> executeStep());
 
@@ -117,6 +128,11 @@ public class MazeSolver extends JFrame implements ActionListener {
         dfsStack = new Stack<>();
         dfsStack.push(new Point(startRow, startCol));
 
+        // Reset the cost variables before starting
+        dijkstraOptimalCost = 0;
+        dfsOptimalCost = 0;
+        costLabel.setText("Total Cost: Dijkstra: 0 | DFS: 0");
+
         isSolving = true;
         timer.start();
     }
@@ -150,6 +166,10 @@ public class MazeSolver extends JFrame implements ActionListener {
         if (row == endRow && col == endCol) {
             reconstructPathDijkstra();
             dijkstraPathFound = true;
+
+            // Calculate the total cost of the optimal path (distance)
+            dijkstraOptimalCost = distances[endRow][endCol];
+            costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
             return;
         }
 
@@ -186,6 +206,10 @@ public class MazeSolver extends JFrame implements ActionListener {
         if (row == endRow && col == endCol) {
             reconstructPathDFS();
             dfsPathFound = true;
+
+            // Menghitung biaya DFS berdasarkan langkah yang diambil
+            dfsOptimalCost++;
+            costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
             return;
         }
 
@@ -209,37 +233,15 @@ public class MazeSolver extends JFrame implements ActionListener {
     }
 
     private void reconstructPathDFS() {
-        Point current = new Point(endRow, endCol);
-        while (current != null) {
-            cells[current.x][current.y].setBackground(Color.GREEN); // Final DFS path in green
-            cells[current.x][current.y].setText("●"); // Add circle marker for final path
-            cells[current.x][current.y].repaint();
-            current = getDFSPredecessor(current);
-        }
+        // Untuk DFS, rekonstruksi jalur bisa dikembangkan sesuai kebutuhan
+        // Di sini, kita hanya menandai titik akhir
+        cells[endRow][endCol].setBackground(Color.PINK);
     }
 
-    private Point getDFSPredecessor(Point current) {
-        int[] dRow = {-1, 1, 0, 0};
-        int[] dCol = {0, 0, -1, 1};
-
-        for (int i = 0; i < 4; i++) {
-            int newRow = current.x + dRow[i];
-            int newCol = current.y + dCol[i];
-
-            // Check if it's a valid move in the maze
-            if (isValidMove(newRow, newCol) && ! visited[newRow][newCol]) {
-                return new Point(newRow, newCol);  // Return the predecessor
-            }
-        }
-        return null;
-    }
-
-    // Method to check if the current cell is a valid move (within bounds and not blocked)
     private boolean isValidMove(int row, int col) {
         return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && maze[row][col] == 0;
     }
 
-    // Main method to run the MazeSolver application
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new MazeSolver().setVisible(true));
     }
