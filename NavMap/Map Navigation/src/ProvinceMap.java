@@ -3,17 +3,21 @@ import javax.swing.Timer;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.*;
 
-public class MazeSolver extends JFrame implements ActionListener {
+public class ProvinceMap extends JFrame implements ActionListener {
 
-    private static final int GRID_SIZE = 20;
-    private static final int CELL_SIZE = 20;
+    private static final int GRID_SIZE = 64;
+    private static final int CELL_SIZE = 64;
 
     private int startRow = 0;
     private int startCol = 0;
-    private int endRow = 19;
-    private int endCol = 19;
+    private int endRow = 63;
+    private int endCol = 63;
 
     private int[][] maze;
     private JButton[][] cells;
@@ -38,11 +42,11 @@ public class MazeSolver extends JFrame implements ActionListener {
     private boolean showDijkstra = true;
 
     private static final String[] PROVINCES = {
-            "Jakarta", "Bali", "Yogyakarta", "West Java", "East Java"
+            "Jakarta", "Bali", "Yogyakarta", "West Java", "East Java", "Jawa Timur A", "Jawa Timur B"
     };
     private Map<String, int[][]> provinceMaps = new HashMap<>();
 
-    public MazeSolver() {
+    public ProvinceMap() {
         super("Maze Solver");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(GRID_SIZE * CELL_SIZE + 16, GRID_SIZE * CELL_SIZE + 100);
@@ -88,27 +92,56 @@ public class MazeSolver extends JFrame implements ActionListener {
     }
 
     private void initializeProvinceMaps() {
-        provinceMaps.put("Jakarta", generateRandomMap());
-        provinceMaps.put("Bali", generateRandomMap());
-        provinceMaps.put("Yogyakarta", generateRandomMap());
-        provinceMaps.put("West Java", generateRandomMap());
-        provinceMaps.put("East Java", generateRandomMap());
+        for (String province : PROVINCES) {
+            provinceMaps.put(province, fetchProvinceMapFromDatabase(province));
+        }
     }
 
-    private int[][] generateRandomMap() {
-        Random rand = new Random();
+    private int[][] fetchProvinceMapFromDatabase(String provinceName) {
         int[][] map = new int[GRID_SIZE][GRID_SIZE];
-        for (int row = 0; row < GRID_SIZE; row++) {
-            for (int col = 0; col < GRID_SIZE; col++) {
-                map[row][col] = rand.nextInt(3) == 0 ? 1 : 0;
+        String url = "jdbc:mysql://127.0.0.1:3306/map";
+        String username = "root";
+        String password = "";
+
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
+            // Update query untuk menggunakan provinceName yang dipilih dari popup
+            String query = "SELECT map_data FROM province WHERE province.idprovince = '1001'";
+            System.out.println(query);
+            PreparedStatement statement = connection.prepareStatement(query);
+
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                String mapData = resultSet.getString("map_data");
+
+                // Pastikan panjang mapData sesuai dengan GRID_SIZE x GRID_SIZE
+                if (mapData.length() <= GRID_SIZE * GRID_SIZE) {
+                    int index = 0;
+                    for (int row = 0; row < GRID_SIZE; row++) {
+                        for (int col = 0; col < GRID_SIZE; col++) {
+                            if (index == mapData.length()){
+
+                            } else {
+                                map[row][col] = Integer.parseInt(String.valueOf(mapData.charAt(index)));
+                                index++;
+                            }
+                        }
+                    }
+                } else {
+                    System.err.println("Error: Map data length is incorrect. Expected " + GRID_SIZE * GRID_SIZE + " characters.");
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
         return map;
     }
+
 
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == startButton && !isSolving) {
+            // Menampilkan popup untuk memilih provinsi
             String province = (String) JOptionPane.showInputDialog(
                     this,
                     "Select a Province",
@@ -116,9 +149,10 @@ public class MazeSolver extends JFrame implements ActionListener {
                     JOptionPane.QUESTION_MESSAGE,
                     null,
                     PROVINCES,
-                    PROVINCES[0]
+                    PROVINCES[0] // Provinsi default
             );
             if (province != null) {
+                // Memuat peta provinsi berdasarkan pilihan pengguna
                 loadProvinceMap(province);
                 setStartAndEndPoints();
                 startAlgorithms();
@@ -256,8 +290,8 @@ public class MazeSolver extends JFrame implements ActionListener {
         }
 
         while (!dfsPath.isEmpty()) {
-            Point p = dfsPath.pop();
-            cells[p.x][p.y].setBackground(Color.GREEN);
+            Point point = dfsPath.pop();
+            cells[point.x][point.y].setBackground(Color.YELLOW);
         }
     }
 
@@ -267,15 +301,19 @@ public class MazeSolver extends JFrame implements ActionListener {
                 cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
             }
         }
+        cells[startRow][startCol].setBackground(Color.GREEN);
+        cells[endRow][endCol].setBackground(Color.RED);
+    }
+
+    private boolean isValidMove(int row, int col) {
+        return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && maze[row][col] == 0;
     }
 
     private void executeDijkstraStep() {
         Point current = pq.poll();
-        int row = current.x;
-        int col = current.y;
+        if (current == null) return;
 
-        if (row == endRow && col == endCol) {
-            reconstructPathDijkstra();
+        if (current.x == endRow && current.y == endCol) {
             dijkstraPathFound = true;
             dijkstraOptimalCost = distances[endRow][endCol];
             costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
@@ -286,30 +324,26 @@ public class MazeSolver extends JFrame implements ActionListener {
         int[] dCol = {0, 0, -1, 1};
 
         for (int i = 0; i < 4; i++) {
-            int newRow = row + dRow[i];
-            int newCol = col + dCol[i];
+            int newRow = current.x + dRow[i];
+            int newCol = current.y + dCol[i];
 
-            if (isValidMove(newRow, newCol) && distances[newRow][newCol] > distances[row][col] + 1) {
-                distances[newRow][newCol] = distances[row][col] + 1;
-                predecessors[newRow][newCol] = current;
-                pq.add(new Point(newRow, newCol));
-                cells[newRow][newCol].setBackground(Color.CYAN);
+            if (isValidMove(newRow, newCol)) {
+                int newDist = distances[current.x][current.y] + 1;
+                if (newDist < distances[newRow][newCol]) {
+                    distances[newRow][newCol] = newDist;
+                    predecessors[newRow][newCol] = current;
+                    pq.add(new Point(newRow, newCol));
+                }
             }
         }
     }
 
     private void executeDFSStep() {
-        if (dfsPathFound) return; // Stop if DFS has already found the path
+        if (dfsStack.isEmpty()) return;
 
         Point current = dfsStack.pop();
-        int row = current.x;
-        int col = current.y;
-
-        if (row == endRow && col == endCol) {
-
+        if (current.x == endRow && current.y == endCol) {
             dfsPathFound = true;
-            dfsOptimalCost = dfsStack.size();
-            costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
             return;
         }
 
@@ -317,30 +351,20 @@ public class MazeSolver extends JFrame implements ActionListener {
         int[] dCol = {0, 0, -1, 1};
 
         for (int i = 0; i < 4; i++) {
-            int newRow = row + dRow[i];
-            int newCol = col + dCol[i];
+            int newRow = current.x + dRow[i];
+            int newCol = current.y + dCol[i];
 
             if (isValidMove(newRow, newCol) && !visited[newRow][newCol]) {
                 visited[newRow][newCol] = true;
                 dfsStack.push(new Point(newRow, newCol));
-                cells[newRow][newCol].setText("●");
             }
         }
     }
 
-    private boolean isValidMove(int row, int col) {
-        return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && maze[row][col] == 0;
-    }
-
-    private void reconstructPathDijkstra() {
-        Point current = new Point(endRow, endCol);
-        while (current != null) {
-            cells[current.x][current.y].setBackground(Color.BLUE);
-            current = predecessors[current.x][current.y];
-        }
-    }
-
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new MazeSolver().setVisible(true));
+        SwingUtilities.invokeLater(() -> {
+            ProvinceMap app = new ProvinceMap();
+            app.setVisible(true);
+        });
     }
 }
