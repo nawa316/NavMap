@@ -7,22 +7,28 @@ import java.util.*;
 
 public class MazeSolver extends JFrame implements ActionListener {
 
-    private static final int GRID_SIZE = 20; // Ukuran grid
-    private static final int CELL_SIZE = 20; // Ukuran setiap sel
-    private int startRow = 0; // Baris awal untuk start point
-    private int startCol = 0; // Kolom awal untuk start point
-    private int endRow = 19; // Baris akhir untuk end point
-    private int endCol = 19; // Kolom akhir untuk end point
+    private static final int GRID_SIZE = 20;
+    private static final int CELL_SIZE = 20;
+
+    private int startRow = 0;
+    private int startCol = 0;
+    private int endRow = 19;
+    private int endCol = 19;
 
     private int[][] maze;
     private JButton[][] cells;
     private JButton startButton;
+
     private boolean isSolving = false;
 
     private int[][] distances;
     private Point[][] predecessors;
     private PriorityQueue<Point> pq;
     private Timer timer;
+    private Stack<Point> dfsStack;
+    private boolean[][] visited;
+    private boolean dfsPathFound = false;
+    private boolean dijkstraPathFound = false;
 
     public MazeSolver() {
         super("Maze Solver");
@@ -36,9 +42,18 @@ public class MazeSolver extends JFrame implements ActionListener {
         JPanel gridPanel = new JPanel(new GridLayout(GRID_SIZE, GRID_SIZE));
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
-                cells[row][col] = new JButton();
+                cells[row][col] = new JButton() {
+                    @Override
+                    protected void paintComponent(Graphics g) {
+                        super.paintComponent(g);
+                        if (getText().equals("●")) {
+                            g.setColor(Color.ORANGE);
+                            int diameter = Math.min(getWidth(), getHeight()) - 10;
+                            g.fillOval((getWidth() - diameter) / 2, (getHeight() - diameter) / 2, diameter, diameter);
+                        }
+                    }
+                };
                 cells[row][col].setPreferredSize(new Dimension(CELL_SIZE, CELL_SIZE));
-                cells[row][col].addActionListener(this);
                 gridPanel.add(cells[row][col]);
             }
         }
@@ -50,10 +65,9 @@ public class MazeSolver extends JFrame implements ActionListener {
         buttonPanel.add(startButton);
         add(buttonPanel, BorderLayout.SOUTH);
 
-        timer = new Timer(100, this); // Delay in milliseconds
-        timer.setInitialDelay(0);
+        timer = new Timer(100, e -> executeStep());
 
-        initializeMaze(); // Inisialisasi maze saat aplikasi dijalankan
+        initializeMaze();
     }
 
     private void initializeMaze() {
@@ -64,20 +78,15 @@ public class MazeSolver extends JFrame implements ActionListener {
                 cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
             }
         }
-        maze[startRow][startCol] = 0; // Pastikan titik awal adalah jalur
-        maze[endRow][endCol] = 0; // Pastikan titik akhir adalah jalur
-        cells[startRow][startCol].setBackground(Color.GREEN);
-        cells[endRow][endCol].setBackground(Color.RED);
+        maze[startRow][startCol] = 0;
+        maze[endRow][endCol] = 0;
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == startButton && !isSolving) {
             setStartAndEndPoints();
-            isSolving = true;
-            startSolving();
-        } else if (e.getSource() == timer) {
-            executeSolvingStep();
+            startAlgorithms();
         }
     }
 
@@ -96,43 +105,51 @@ public class MazeSolver extends JFrame implements ActionListener {
         cells[endRow][endCol].setBackground(Color.RED);
     }
 
-    private void startSolving() {
-        // Reset the maze visual
-        for (int i = 0; i < GRID_SIZE; i++) {
-            for (int j = 0; j < GRID_SIZE; j++) {
-                cells[i][j].setBackground(maze[i][j] == 1 ? Color.BLACK : Color.WHITE);
-            }
-        }
-        cells[startRow][startCol].setBackground(Color.GREEN);
-        cells[endRow][endCol].setBackground(Color.RED);
-
-        // Start solving the maze
+    private void startAlgorithms() {
         distances = new int[GRID_SIZE][GRID_SIZE];
         predecessors = new Point[GRID_SIZE][GRID_SIZE];
         Arrays.stream(distances).forEach(a -> Arrays.fill(a, Integer.MAX_VALUE));
-        Arrays.stream(predecessors).forEach(a -> Arrays.fill(a, null));
-
         distances[startRow][startCol] = 0;
         pq = new PriorityQueue<>(Comparator.comparingInt(p -> distances[p.x][p.y]));
         pq.add(new Point(startRow, startCol));
 
+        visited = new boolean[GRID_SIZE][GRID_SIZE];
+        dfsStack = new Stack<>();
+        dfsStack.push(new Point(startRow, startCol));
+
+        isSolving = true;
         timer.start();
     }
 
-    private void executeSolvingStep() {
-        if (pq.isEmpty()) {
+    private void executeStep() {
+        if (pq.isEmpty() && dfsStack.isEmpty()) {
             timer.stop();
-            reconstructPath();
+            isSolving = false;
             return;
         }
 
+        if (!pq.isEmpty() && !dijkstraPathFound) {
+            executeDijkstraStep();
+        }
+
+        if (!dfsStack.isEmpty() && !dfsPathFound) {
+            executeDFSStep();
+        }
+
+        if (dijkstraPathFound && dfsPathFound) {
+            timer.stop();
+            isSolving = false;
+        }
+    }
+
+    private void executeDijkstraStep() {
         Point current = pq.poll();
         int row = current.x;
         int col = current.y;
 
         if (row == endRow && col == endCol) {
-            timer.stop();
-            reconstructPath();
+            reconstructPathDijkstra();
+            dijkstraPathFound = true;
             return;
         }
 
@@ -143,38 +160,87 @@ public class MazeSolver extends JFrame implements ActionListener {
             int newRow = row + dRow[i];
             int newCol = col + dCol[i];
 
-            if (isValidMove(newRow, newCol)) {
-                int newDist = distances[row][col] + 1;
-                if (newDist < distances[newRow][newCol]) {
-                    distances[newRow][newCol] = newDist;
-                    predecessors[newRow][newCol] = new Point(row, col);
-                    pq.add(new Point(newRow, newCol));
-                    cells[newRow][newCol].setBackground(Color.BLUE); // Mark as visited
-                }
+            if (isValidMove(newRow, newCol) && distances[newRow][newCol] > distances[row][col] + 1) {
+                distances[newRow][newCol] = distances[row][col] + 1;
+                predecessors[newRow][newCol] = current;
+                pq.add(new Point(newRow, newCol));
+                cells[newRow][newCol].setBackground(Color.BLUE);
             }
         }
     }
 
-    private boolean isValidMove(int row, int col) {
-        return row >= 0 && col >= 0 && row < GRID_SIZE && col < GRID_SIZE && maze[row][col] == 0;
-    }
-
-    private void reconstructPath() {
+    private void reconstructPathDijkstra() {
         Point current = new Point(endRow, endCol);
         while (current != null) {
-            cells[current.x][current.y].setBackground(Color.RED);
+            cells[current.x][current.y].setBackground(Color.PINK);
+            cells[current.x][current.y].repaint();
             current = predecessors[current.x][current.y];
         }
-        isSolving = false;
     }
 
+    private void executeDFSStep() {
+        Point current = dfsStack.pop();
+        int row = current.x;
+        int col = current.y;
+
+        if (row == endRow && col == endCol) {
+            reconstructPathDFS();
+            dfsPathFound = true;
+            return;
+        }
+
+        if (visited[row][col]) return;
+
+        visited[row][col] = true;
+        cells[row][col].setText("●");
+        cells[row][col].repaint();
+
+        int[] dRow = {-1, 1, 0, 0};
+        int[] dCol = {0, 0, -1, 1};
+
+        for (int i = 0; i < 4; i++) {
+            int newRow = row + dRow[i];
+            int newCol = col + dCol[i];
+
+            if (isValidMove(newRow, newCol) && !visited[newRow][newCol]) {
+                dfsStack.push(new Point(newRow, newCol));
+            }
+        }
+    }
+
+    private void reconstructPathDFS() {
+        Point current = new Point(endRow, endCol);
+        while (current != null) {
+            cells[current.x][current.y].setBackground(Color.GREEN); // Final DFS path in green
+            cells[current.x][current.y].setText("●"); // Add circle marker for final path
+            cells[current.x][current.y].repaint();
+            current = getDFSPredecessor(current);
+        }
+    }
+
+    private Point getDFSPredecessor(Point current) {
+        int[] dRow = {-1, 1, 0, 0};
+        int[] dCol = {0, 0, -1, 1};
+
+        for (int i = 0; i < 4; i++) {
+            int newRow = current.x + dRow[i];
+            int newCol = current.y + dCol[i];
+
+            // Check if it's a valid move in the maze
+            if (isValidMove(newRow, newCol) && ! visited[newRow][newCol]) {
+                return new Point(newRow, newCol);  // Return the predecessor
+            }
+        }
+        return null;
+    }
+
+    // Method to check if the current cell is a valid move (within bounds and not blocked)
+    private boolean isValidMove(int row, int col) {
+        return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && maze[row][col] == 0;
+    }
+
+    // Main method to run the MazeSolver application
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            MazeSolver mazeSolver = new MazeSolver();
-            mazeSolver.setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new MazeSolver().setVisible(true));
     }
 }
-
-
-//tolong nanti berikan 2 rute pilihan dari titik A ke titik B bila ada, jangan mengurangi kode yang saya kirim
