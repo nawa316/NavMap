@@ -30,10 +30,17 @@ public class MazeSolver extends JFrame implements ActionListener {
     private boolean dfsPathFound = false;
     private boolean dijkstraPathFound = false;
 
-    // Variables for tracking the cost of the optimal path
     private int dijkstraOptimalCost = 0;
     private int dfsOptimalCost = 0;
     private JLabel costLabel;
+
+    private Timer highlightTimer;
+    private boolean showDijkstra = true;
+
+    private static final String[] PROVINCES = {
+            "Jakarta", "Bali", "Yogyakarta", "West Java", "East Java"
+    };
+    private Map<String, int[][]> provinceMaps = new HashMap<>();
 
     public MazeSolver() {
         super("Maze Solver");
@@ -70,7 +77,6 @@ public class MazeSolver extends JFrame implements ActionListener {
         buttonPanel.add(startButton);
         add(buttonPanel, BorderLayout.SOUTH);
 
-        // Cost Label
         costLabel = new JLabel("Total Cost: Dijkstra: 0 | DFS: 0");
         JPanel costPanel = new JPanel();
         costPanel.add(costLabel);
@@ -78,26 +84,54 @@ public class MazeSolver extends JFrame implements ActionListener {
 
         timer = new Timer(100, e -> executeStep());
 
-        initializeMaze();
+        initializeProvinceMaps();
     }
 
-    private void initializeMaze() {
+    private void initializeProvinceMaps() {
+        provinceMaps.put("Jakarta", generateRandomMap());
+        provinceMaps.put("Bali", generateRandomMap());
+        provinceMaps.put("Yogyakarta", generateRandomMap());
+        provinceMaps.put("West Java", generateRandomMap());
+        provinceMaps.put("East Java", generateRandomMap());
+    }
+
+    private int[][] generateRandomMap() {
         Random rand = new Random();
+        int[][] map = new int[GRID_SIZE][GRID_SIZE];
         for (int row = 0; row < GRID_SIZE; row++) {
             for (int col = 0; col < GRID_SIZE; col++) {
-                maze[row][col] = rand.nextInt(3) == 0 ? 1 : 0;
-                cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
+                map[row][col] = rand.nextInt(3) == 0 ? 1 : 0;
             }
         }
-        maze[startRow][startCol] = 0;
-        maze[endRow][endCol] = 0;
+        return map;
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == startButton && !isSolving) {
-            setStartAndEndPoints();
-            startAlgorithms();
+            String province = (String) JOptionPane.showInputDialog(
+                    this,
+                    "Select a Province",
+                    "Choose a Province",
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    PROVINCES,
+                    PROVINCES[0]
+            );
+            if (province != null) {
+                loadProvinceMap(province);
+                setStartAndEndPoints();
+                startAlgorithms();
+            }
+        }
+    }
+
+    private void loadProvinceMap(String province) {
+        maze = provinceMaps.get(province);
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
+            }
         }
     }
 
@@ -128,7 +162,6 @@ public class MazeSolver extends JFrame implements ActionListener {
         dfsStack = new Stack<>();
         dfsStack.push(new Point(startRow, startCol));
 
-        // Reset the cost variables before starting
         dijkstraOptimalCost = 0;
         dfsOptimalCost = 0;
         costLabel.setText("Total Cost: Dijkstra: 0 | DFS: 0");
@@ -141,6 +174,7 @@ public class MazeSolver extends JFrame implements ActionListener {
         if (pq.isEmpty() && dfsStack.isEmpty()) {
             timer.stop();
             isSolving = false;
+            startHighlightAlternation();
             return;
         }
 
@@ -155,6 +189,83 @@ public class MazeSolver extends JFrame implements ActionListener {
         if (dijkstraPathFound && dfsPathFound) {
             timer.stop();
             isSolving = false;
+            startHighlightAlternation();
+        }
+    }
+
+    private void startHighlightAlternation() {
+        highlightTimer = new Timer(1000, e -> {
+            if (showDijkstra) {
+                highlightDijkstraPath();
+            } else {
+                highlightDFSPath();
+            }
+            showDijkstra = !showDijkstra;
+        });
+        highlightTimer.start();
+    }
+
+    private void highlightDijkstraPath() {
+        resetGrid();
+
+        Point current = new Point(endRow, endCol);
+        while (current != null) {
+            cells[current.x][current.y].setBackground(Color.BLUE);
+            current = predecessors[current.x][current.y];
+        }
+    }
+
+    private void highlightDFSPath() {
+        resetGrid();
+
+        Stack<Point> dfsPath = new Stack<>();
+        Point[][] dfsPredecessors = new Point[GRID_SIZE][GRID_SIZE];
+        boolean[][] dfsVisited = new boolean[GRID_SIZE][GRID_SIZE];
+
+        dfsStack.push(new Point(startRow, startCol));
+        dfsVisited[startRow][startCol] = true;
+
+        while (!dfsStack.isEmpty()) {
+            Point current = dfsStack.pop();
+
+            if (current.x == endRow && current.y == endCol) {
+                Point temp = current;
+                while (temp != null) {
+                    dfsPath.push(temp);
+                    temp = dfsPredecessors[temp.x][temp.y];
+                }
+                dfsPathFound = true;
+                dfsOptimalCost = dfsPath.size() - 1;
+                costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
+                break;
+            }
+
+            int[] dRow = {-1, 1, 0, 0};
+            int[] dCol = {0, 0, -1, 1};
+
+            for (int i = 0; i < 4; i++) {
+                int newRow = current.x + dRow[i];
+                int newCol = current.y + dCol[i];
+
+                if (isValidMove(newRow, newCol) && !dfsVisited[newRow][newCol]) {
+                    dfsVisited[newRow][newCol] = true;
+                    dfsStack.push(new Point(newRow, newCol));
+                    dfsPredecessors[newRow][newCol] = current;
+                }
+            }
+        }
+
+        while (!dfsPath.isEmpty()) {
+            Point p = dfsPath.pop();
+            cells[p.x][p.y].setBackground(Color.GREEN);
+        }
+    }
+
+    private void resetGrid() {
+        for (int row = 0; row < GRID_SIZE; row++) {
+            for (int col = 0; col < GRID_SIZE; col++) {
+                cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
+            }
         }
     }
 
@@ -166,8 +277,6 @@ public class MazeSolver extends JFrame implements ActionListener {
         if (row == endRow && col == endCol) {
             reconstructPathDijkstra();
             dijkstraPathFound = true;
-
-            // Calculate the total cost of the optimal path (distance)
             dijkstraOptimalCost = distances[endRow][endCol];
             costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
             return;
@@ -184,40 +293,25 @@ public class MazeSolver extends JFrame implements ActionListener {
                 distances[newRow][newCol] = distances[row][col] + 1;
                 predecessors[newRow][newCol] = current;
                 pq.add(new Point(newRow, newCol));
-                cells[newRow][newCol].setBackground(Color.BLUE);
+                cells[newRow][newCol].setBackground(Color.CYAN);
             }
         }
     }
 
-    private void reconstructPathDijkstra() {
-        Point current = new Point(endRow, endCol);
-        while (current != null) {
-            cells[current.x][current.y].setBackground(Color.PINK);
-            cells[current.x][current.y].repaint();
-            current = predecessors[current.x][current.y];
-        }
-    }
-
     private void executeDFSStep() {
+        if (dfsPathFound) return; // Stop if DFS has already found the path
+
         Point current = dfsStack.pop();
         int row = current.x;
         int col = current.y;
 
         if (row == endRow && col == endCol) {
-            reconstructPathDFS();
-            dfsPathFound = true;
 
-            // Menghitung biaya DFS berdasarkan langkah yang diambil
-            dfsOptimalCost++;
+            dfsPathFound = true;
+            dfsOptimalCost = dfsStack.size();
             costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
             return;
         }
-
-        if (visited[row][col]) return;
-
-        visited[row][col] = true;
-        cells[row][col].setText("●");
-        cells[row][col].repaint();
 
         int[] dRow = {-1, 1, 0, 0};
         int[] dCol = {0, 0, -1, 1};
@@ -227,19 +321,23 @@ public class MazeSolver extends JFrame implements ActionListener {
             int newCol = col + dCol[i];
 
             if (isValidMove(newRow, newCol) && !visited[newRow][newCol]) {
+                visited[newRow][newCol] = true;
                 dfsStack.push(new Point(newRow, newCol));
+                cells[newRow][newCol].setText("●");
             }
         }
     }
 
-    private void reconstructPathDFS() {
-        // Untuk DFS, rekonstruksi jalur bisa dikembangkan sesuai kebutuhan
-        // Di sini, kita hanya menandai titik akhir
-        cells[endRow][endCol].setBackground(Color.PINK);
-    }
-
     private boolean isValidMove(int row, int col) {
         return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE && maze[row][col] == 0;
+    }
+
+    private void reconstructPathDijkstra() {
+        Point current = new Point(endRow, endCol);
+        while (current != null) {
+            cells[current.x][current.y].setBackground(Color.BLUE);
+            current = predecessors[current.x][current.y];
+        }
     }
 
     public static void main(String[] args) {
