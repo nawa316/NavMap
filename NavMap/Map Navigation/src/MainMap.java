@@ -21,15 +21,14 @@ public class MainMap extends JFrame {
         this.wilayahMap = wilayahMap;
     }
 
-    private JPanel gridPanel;
-    private JButton startButton;
+    protected JButton startButton;
 
-    private boolean isSolving = false;
+    protected boolean isSolving = false;
 
-    private int startRow = 0;
-    private int startCol = 0;
-    private int endRow = gridSize-1;
-    private int endCol = gridSize-1;
+    public int startRow = 0;
+    public int startCol = 0;
+    public int endRow = 63;
+    public int endCol = 63;
 
     private int[][] distances;
     private Point[][] predecessors;
@@ -50,6 +49,7 @@ public class MainMap extends JFrame {
     public MainMap(String title, int gridSize, String type) {
         super(title);
         this.typeMap = type;
+        this.gridSize = gridSize;
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(gridSize * gridSize + 16, gridSize * gridSize + 100);
         setLocationRelativeTo(null);
@@ -111,7 +111,7 @@ public class MainMap extends JFrame {
     public void loadMap() {
         for (int row = 0; row < gridSize; row++) {
             for (int col = 0; col < gridSize; col++) {
-                cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
+                cells[row][col].setBackground(maze[row][col] == 9 ? Color.GREEN : maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
             }
         }
     }
@@ -245,7 +245,7 @@ public class MainMap extends JFrame {
     public void resetGrid() {
         for (int row = 0; row < gridSize; row++) {
             for (int col = 0; col < gridSize; col++) {
-                cells[row][col].setBackground(maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
+                cells[row][col].setBackground(maze[row][col] == 9 ? Color.GREEN : maze[row][col] == 1 ? Color.BLACK : Color.WHITE);
             }
         }
     }
@@ -259,6 +259,7 @@ public class MainMap extends JFrame {
         if (current == null) return;
 
         if (current.x == endRow && current.y == endCol) {
+            reconstructPathDijkstra();
             dijkstraPathFound = true;
             dijkstraOptimalCost = distances[endRow][endCol];
             costLabel.setText("Total Cost: Dijkstra: " + dijkstraOptimalCost + " | DFS: " + dfsOptimalCost);
@@ -280,6 +281,14 @@ public class MainMap extends JFrame {
                     pq.add(new Point(newRow, newCol));
                 }
             }
+        }
+    }
+
+    private void reconstructPathDijkstra() {
+        Point current = new Point(endRow, endCol);
+        while (current != null) {
+            cells[current.x][current.y].setBackground(Color.BLUE);
+            current = predecessors[current.x][current.y];
         }
     }
 
