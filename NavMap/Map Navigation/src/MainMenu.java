@@ -10,7 +10,7 @@ public class MainMenu extends JFrame implements ActionListener {
     private JButton exitButton;
 
     public MainMenu() {
-        super("Main Menu");
+        super("Nav Map");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(300, 200);
         setLocationRelativeTo(null);

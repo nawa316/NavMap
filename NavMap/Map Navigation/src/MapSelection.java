@@ -11,7 +11,7 @@ public class MapSelection extends JFrame implements ActionListener {
     private JButton backButton;
 
     public MapSelection() {
-        super("Select Map");
+        super("Nav Map");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(300, 200);
         setLocationRelativeTo(null);

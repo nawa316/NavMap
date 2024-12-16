@@ -5,13 +5,13 @@ import java.util.List;
 
 public class AllMap extends JFrame {
 
-    private List<int[][]> maps; // List to hold all generated maps
+    private List<int[][]> maps;
 
     public AllMap(List<int[][]> maps) {
         super("All Maps");
         this.maps = maps;
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        setLayout(new GridLayout(1, maps.size())); // One row, multiple columns
+        setLayout(new GridLayout(1, maps.size()));
 
         for (int[][] map : maps) {
             add(createMapPanel(map));
@@ -29,9 +29,9 @@ public class AllMap extends JFrame {
                 JButton cell = new JButton();
                 cell.setPreferredSize(new Dimension(20, 20));
                 if (map[row][col] == 1) {
-                    cell.setBackground(Color.BLACK); // Wall
+                    cell.setBackground(Color.BLACK);
                 } else {
-                    cell.setBackground(Color.WHITE); // Path
+                    cell.setBackground(Color.WHITE);
                 }
                 panel.add(cell);
             }
