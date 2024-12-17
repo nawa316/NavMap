@@ -27,7 +27,7 @@ public class ProvinceMap extends MainMap {
             );
             setWilayahMap(province);
             loadMapData(province);
-            loadMap();
+            resetGrid();
             actionPerformed();
         });
         add(loadButton, BorderLayout.SOUTH);

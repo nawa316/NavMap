@@ -4,9 +4,6 @@ import java.awt.*;
 import java.util.*;
 
 public class MainMap extends JFrame {
-    private static String[] category = {
-            "City", "Provinsi"
-    };
     protected int[][] maze;
     protected int gridSize;
     public JButton[][] cells;
@@ -27,8 +24,8 @@ public class MainMap extends JFrame {
 
     public int startRow = 0;
     public int startCol = 0;
-    public int endRow = 63;
-    public int endCol = 63;
+    public int endRow = gridSize-1;
+    public int endCol = gridSize-1;
 
     private int[][] distances;
     private Point[][] predecessors;
@@ -50,6 +47,8 @@ public class MainMap extends JFrame {
         super(title);
         this.typeMap = type;
         this.gridSize = gridSize;
+        startButton = new JButton("Start");
+        startButton.addActionListener(e -> actionPerformed());
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(gridSize * gridSize + 16, gridSize * gridSize + 100);
         setLocationRelativeTo(null);
@@ -77,19 +76,6 @@ public class MainMap extends JFrame {
         }
         add(gridPanel, BorderLayout.CENTER);
 
-        startButton = new JButton("Set Points & Solve");
-        startButton.addActionListener(e -> {
-            typeMap = (String) JOptionPane.showInputDialog(
-                    this,
-                    "Select a Province",
-                    "Choose Province",
-                    JOptionPane.QUESTION_MESSAGE,
-                    null,
-                    category,
-                    category[0]
-            );
-                actionPerformed();
-        });
         JPanel buttonPanel = new JPanel();
         buttonPanel.add(startButton);
         add(buttonPanel, BorderLayout.SOUTH);
@@ -99,7 +85,7 @@ public class MainMap extends JFrame {
         costPanel.add(costLabel);
         add(costPanel, BorderLayout.NORTH);
 
-        timer = new Timer(100, e -> executeStep());
+        timer = new Timer(50, e -> executeStep());
     }
 
     public void actionPerformed() {
@@ -115,6 +101,7 @@ public class MainMap extends JFrame {
             }
         }
     }
+
 
     private void setStartAndEndPoints() {
         String start = JOptionPane.showInputDialog("Enter start coordinates (row,col):");
@@ -132,23 +119,23 @@ public class MainMap extends JFrame {
     }
 
     private void startAlgorithms() {
-        distances = new int[gridSize][gridSize];
-        predecessors = new Point[gridSize][gridSize];
-        Arrays.stream(distances).forEach(a -> Arrays.fill(a, Integer.MAX_VALUE));
-        distances[startRow][startCol] = 0;
-        pq = new PriorityQueue<>(Comparator.comparingInt(p -> distances[p.x][p.y]));
-        pq.add(new Point(startRow, startCol));
+            distances = new int[gridSize][gridSize];
+            predecessors = new Point[gridSize][gridSize];
+            Arrays.stream(distances).forEach(a -> Arrays.fill(a, Integer.MAX_VALUE));
+            distances[startRow][startCol] = 0;
+            pq = new PriorityQueue<>(Comparator.comparingInt(p -> distances[p.x][p.y]));
+            pq.add(new Point(startRow, startCol));
 
-        visited = new boolean[gridSize][gridSize];
-        dfsStack = new Stack<>();
-        dfsStack.push(new Point(startRow, startCol));
+            visited = new boolean[gridSize][gridSize];
+            dfsStack = new Stack<>();
+            dfsStack.push(new Point(startRow, startCol));
 
-        dijkstraOptimalCost = 0;
-        dfsOptimalCost = 0;
-        costLabel.setText("Total Cost: Dijkstra: 0 | DFS: 0");
+            dijkstraOptimalCost = 0;
+            dfsOptimalCost = 0;
+            costLabel.setText("Total Cost: Dijkstra: 0 | DFS: 0");
 
-        isSolving = true;
-        timer.start();
+            isSolving = true;
+            timer.start();
     }
 
     private void executeStep() {
@@ -251,12 +238,14 @@ public class MainMap extends JFrame {
     }
 
     private boolean isValidMove(int row, int col) {
-        return row >= 0 && row < gridSize && col >= 0 && col < gridSize && maze[row][col] == 0;
+        return row >= 0 && row < gridSize && col >= 0 && col < gridSize && (maze[row][col] == 0 || maze[row][col] == 9);
     }
 
     private void executeDijkstraStep() {
         Point current = pq.poll();
         if (current == null) return;
+
+        cells[current.x][current.y].setBackground(Color.BLUE);
 
         if (current.x == endRow && current.y == endCol) {
             reconstructPathDijkstra();
@@ -300,6 +289,8 @@ public class MainMap extends JFrame {
             dfsPathFound = true;
             return;
         }
+
+        cells[current.x][current.y].setText("●");
 
         int[] dRow = {-1, 1, 0, 0};
         int[] dCol = {0, 0, -1, 1};

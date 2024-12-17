@@ -39,21 +39,30 @@ public class MapSelection extends JFrame implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == OpenAllMap) {
-            openMap("Map 1");
+            JOptionPane.showMessageDialog(this, "Opening " + "OpenAllMap");
+            SwingUtilities.invokeLater(() -> new AllMap().setVisible(true));
         } else if (e.getSource() == Navigate) {
-            openMap("Map 2");
+            JOptionPane.showMessageDialog(this, "Opening " + "Navigate");
+            SwingUtilities.invokeLater(() -> {
+                String[] options = {"City", "Province"};
+                String choice = (String) JOptionPane.showInputDialog(
+                        null,
+                        "Select the type of map to display:",
+                        "Map Selector",
+                        JOptionPane.QUESTION_MESSAGE,
+                        null,
+                        options,
+                        options[0]
+                );
+
+                if ("City".equals(choice)) {
+                    new CityMap().setVisible(true);
+                } else if ("Province".equals(choice)) {
+                    new ProvinceMap().setVisible(true);
+                }
+            });
         } else if (e.getSource() == ScanMap) {
-            openMap("Map 3");
+            JOptionPane.showMessageDialog(this, "Opening " + "ScanMap");
         }
-    }
-
-    private void openMap(String mapName) {
-        // Here you can implement the logic to open the selected map
-        JOptionPane.showMessageDialog(this, "Opening " + mapName);
-        // Example: new MazeSolver(mapName).setVisible(true);
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new MapSelection().setVisible(true));
     }
 }
